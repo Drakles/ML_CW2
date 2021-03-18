@@ -30,6 +30,13 @@ import game
 import util
 
 
+class Reward:
+    GAME_OVER = -10
+    FOOD = 1
+    CAPSULE = 2
+    DEFAULT = -0.04
+
+
 # Class representing actions like going UP, RIGHT, DOWN or LEFT associated with tuple representing actual change on x,
 # y axis.
 class Actions:
@@ -82,12 +89,23 @@ class QState:
 
     def __eq__(self, otherGameStateData):
         return self.pacman_pos == otherGameStateData.pacman_pos and self.ghosts_pos == \
-               otherGameStateData.ghost_stae and self.capsules == otherGameStateData.capsules and self.food == \
-               otherGameStateData.convert_to_food_list
+               otherGameStateData.ghosts_pos and self.capsules == otherGameStateData.capsules and self.food == \
+               otherGameStateData.food
 
 
 def pacman_next_pos(pacman_pos, action):
-    pass
+    return pacman_pos + directionToAction[action]
+
+
+def getReward(pacman_position, food, capsules, ghosts_pos):
+    if pacman_position in ghosts_pos:
+        return Reward.GAME_OVER
+    elif pacman_position in capsules:
+        return Reward.CAPSULE
+    elif pacman_position in food:
+        return Reward.FOOD
+    else:
+        return Reward.DEFAULT
 
 
 class QLearnAgent(Agent):
@@ -111,6 +129,9 @@ class QLearnAgent(Agent):
 
         # dictionary representing 2d table of states, actions and related Q value
         self.states_actions_q_val = {}
+
+        self.prev_state = None
+        self.prev_action = None
 
     # Accessor functions for the variable episodesSoFars controlling learning
     def incrementEpisodesSoFar(self):
@@ -161,6 +182,7 @@ class QLearnAgent(Agent):
         qState = QState(state.gameStateData)
 
         reward = getReward(pacman_next_pos(qState.pacman_pos, action), qState.food, qState.capsules, qState.ghosts_pos)
+        updateStatesActions(self.states_actions_q_val, reward, qState)
 
         # We have to return an action
         return action
