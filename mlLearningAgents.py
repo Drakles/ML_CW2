@@ -32,9 +32,8 @@ import util
 
 class Reward:
     GAME_OVER = -10
-    FOOD = 1
-    CAPSULE = 2
-    DEFAULT = -0.04
+    FOOD = 10
+    DEFAULT = 0
 
 
 # Class representing actions like going UP, RIGHT, DOWN or LEFT associated with tuple representing actual change on x,
@@ -79,36 +78,51 @@ def convert_to_food_list(state):
     return foodList
 
 
-class QState:
+class State:
 
     def __init__(self, state):
         self.pacman_pos = state.getPacmanPosition()
         self.ghosts_pos = state.getGhostPositions()
-        self.capsules = state.getCapsules()
         self.food = convert_to_food_list(state)
 
     def __eq__(self, otherGameStateData):
-        return self.pacman_pos == otherGameStateData.pacman_pos and self.ghosts_pos == \
-               otherGameStateData.ghosts_pos and self.capsules == otherGameStateData.capsules and self.food == \
-               otherGameStateData.food
+        return self.pacman_pos == otherGameStateData.pacman_pos \
+               and self.ghosts_pos == otherGameStateData.ghosts_pos \
+               and self.food == otherGameStateData.food
 
 
 def pacman_next_pos(pacman_pos, action):
     return pacman_pos + directionToAction[action]
 
 
-def getReward(pacman_position, food, capsules, ghosts_pos):
+def getReward(pacman_position, food, ghosts_pos):
     if pacman_position in ghosts_pos:
         return Reward.GAME_OVER
-    elif pacman_position in capsules:
-        return Reward.CAPSULE
     elif pacman_position in food:
         return Reward.FOOD
     else:
         return Reward.DEFAULT
 
 
-class QLearnAgent(Agent):
+# def updateStatesActions(states_actions_q_val, reward, curr_qState,
+#                         action, learn_rate, discount_fact):
+#     if curr_qState in states_actions_q_val:
+#         actions_reward = states_actions_q_val[curr_qState]
+#         if action in actions_reward:
+#         # update
+#
+#         else:
+#             actions_reward[action] = reward
+#     else:
+#         states_actions_q_val[curr_qState] = {action: reward}
+
+
+def getRewardByState(prev_state):
+    return getReward(prev_state.pacman_pos, prev_state.food,
+                     prev_state.ghosts_pos)
+
+# -p SARSAAgent -l smallClassic -a numTraining=2 -a alpha=0.2
+class SARSAAgent(Agent):
 
     # Constructor, called when we start running the
     def __init__(self, alpha=0.2, epsilon=0.05, gamma=0.8, numTraining=10):
@@ -128,7 +142,7 @@ class QLearnAgent(Agent):
         self.episodesSoFar = 0
 
         # dictionary representing 2d table of states, actions and related Q value
-        self.states_actions_q_val = {}
+        self.stats_acts_q_val = {}
 
         self.prev_state = None
         self.prev_action = None
@@ -179,10 +193,23 @@ class QLearnAgent(Agent):
         # Now pick what action to take. For now a random choice among
         # the legal moves
         action = random.choice(legal)
-        qState = QState(state.gameStateData)
+        state = State(state.gameStateData)
 
-        reward = getReward(pacman_next_pos(qState.pacman_pos, action), qState.food, qState.capsules, qState.ghosts_pos)
-        updateStatesActions(self.states_actions_q_val, reward, qState)
+        if self.prev_state is not None:
+            prev_q_val = \
+                self.stats_acts_q_val.get(self.prev_state, 0) \
+                    .get(self.prev_action, 0)
+
+            self.stats_acts_q_val[self.prev_state][self.prev_action] = \
+                prev_q_val + self.alpha * \
+                (getRewardByState(self.prev_state) + self.epsilon *
+                 self.stats_acts_q_val.get(state, 0)
+                 .get(action, 0) - prev_q_val)
+
+        # reward = getReward(pacman_next_pos(qState.pacman_pos, action),
+        #                    qState.food, qState.ghosts_pos)
+        # updateStatesActions(self.states_actions_q_val, reward, qState,action,
+        #                     self.alpha,self.gamma)
 
         # We have to return an action
         return action
