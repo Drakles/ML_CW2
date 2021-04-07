@@ -22,6 +22,7 @@
 # The agent here was written by Simon Parsons, based on the code in
 # pacmanAgents.py
 # learningAgents.py
+from copy import deepcopy
 
 from pacman import Directions
 from game import Agent
@@ -31,18 +32,22 @@ import util
 
 
 class Reward:
-    GAME_OVER = -10
-    FOOD = 10
+    GAME_OVER = -100
+    FOOD = 100
     DEFAULT = 0
 
 
-# Class representing actions like going UP, RIGHT, DOWN or LEFT associated with tuple representing actual change on x,
-# y axis.
+# Class representing actions like going UP, RIGHT, DOWN or LEFT associated
+# with tuple representing actual change on x, y axis.
 class Actions:
     UP = (0, 1)
     RIGHT = (1, 0)
     DOWN = (0, -1)
     LEFT = (-1, 0)
+
+
+def getAllActions():
+    return [Actions.UP, Actions.RIGHT, Actions.DOWN, Actions.LEFT]
 
 
 # Dictionary to translate action to Direction class.
@@ -63,10 +68,9 @@ directionToAction = {
 
 
 # this function is taken from api class of pacman project
-def convert_to_food_list(state):
+def convert_to_food_list(foodGrid):
     # Returns a list of (x, y) pairs of food positions
     foodList = []
-    foodGrid = state.data.food
     width = foodGrid.width
     height = foodGrid.height
     for i in range(width):
@@ -78,17 +82,47 @@ def convert_to_food_list(state):
     return foodList
 
 
-class State:
+# class StateZero:
+#     def __init__(self):
+#         self.pacman_pos = (0, 0)
+#         self.ghosts_pos = tuple([(-1, -1)])
+#         self.food = tuple([(-1, -1)])
+#
+#     def __eq__(self, other):
+#         return self == other
+#
+#     def __hash__(self):
+#         return hash((self.pacman_pos, self.ghosts_pos, self.food))
 
-    def __init__(self, state):
-        self.pacman_pos = state.getPacmanPosition()
-        self.ghosts_pos = state.getGhostPositions()
-        self.food = convert_to_food_list(state)
+
+class QState:
+
+    def __init__(self, pacman_pos, ghosts_pos, food_pos):
+        # TODO update with getPacmanPosition() etc. from pacman.py
+        self.pacman_pos = pacman_pos
+        self.ghosts_pos = ghosts_pos
+        self.food_pos = food_pos
+        # self.pacman_pos = state.agentStates[0].configuration.pos
+        # self.ghosts_pos = tuple([ghost_state.configuration.pos for ghost_state
+        #                          in state.agentStates[1:]])
+        # self.food = tuple(convert_to_food_list(state))
+
+    # def fromQState(self, qstate, pacman_pos):
+    #     self.pacman_pos = pacman_pos
+    #     self.ghosts_pos = qstate.ghosts_pos
+    #     self.food = qstate.food
 
     def __eq__(self, otherGameStateData):
         return self.pacman_pos == otherGameStateData.pacman_pos \
                and self.ghosts_pos == otherGameStateData.ghosts_pos \
-               and self.food == otherGameStateData.food
+               and self.food_pos == otherGameStateData.food_pos
+
+    def __hash__(self):
+        return hash((self.pacman_pos, self.ghosts_pos, self.food_pos))
+
+    def __str__(self):
+        return 'pacman:' + str(self.pacman_pos) + ' , ghosts:' + str(
+            self.ghosts_pos) + ' food:' + str(self.food_pos)
 
 
 def pacman_next_pos(pacman_pos, action):
@@ -97,8 +131,10 @@ def pacman_next_pos(pacman_pos, action):
 
 def getReward(pacman_position, food, ghosts_pos):
     if pacman_position in ghosts_pos:
+        print 'game over looser'
         return Reward.GAME_OVER
     elif pacman_position in food:
+        print 'you doin good!'
         return Reward.FOOD
     else:
         return Reward.DEFAULT
@@ -118,11 +154,37 @@ def getReward(pacman_position, food, ghosts_pos):
 
 
 def getRewardByState(prev_state):
-    return getReward(prev_state.pacman_pos, prev_state.food,
+    return getReward(prev_state.pacman_pos,
+                     prev_state.food_pos,
                      prev_state.ghosts_pos)
 
-# -p SARSAAgent -l smallClassic -a numTraining=2 -a alpha=0.2
-class SARSAAgent(Agent):
+
+def getQValue(action, state, stats_acts_q_val):
+    actions_q_val = stats_acts_q_val.get(state, 0)
+    if actions_q_val is not 0:
+        return actions_q_val.get(action, 0)
+    else:
+        return actions_q_val
+
+
+def next_position(pacman_pos, action):
+    return tuple(map(sum, zip(pacman_pos, action)))
+
+
+def max_next_q_values(q_state, stats_acts_q_val):
+    next_q_val = []
+    actions = getAllActions()
+
+    for action in actions:
+        next_q_state = QState(next_position(q_state.pacman_pos, action),
+                              q_state.ghosts_pos, q_state.food_pos)
+        next_q_val.append(getQValue(action, next_q_state, stats_acts_q_val))
+
+    return max(next_q_val)
+
+
+# -p QLearningAgent -l smallClassic -a numTraining=2 -a alpha=0.2
+class QLearningAgent(Agent):
 
     # Constructor, called when we start running the
     def __init__(self, alpha=0.2, epsilon=0.05, gamma=0.8, numTraining=10):
@@ -141,11 +203,9 @@ class SARSAAgent(Agent):
         # Count the number of games we have played
         self.episodesSoFar = 0
 
-        # dictionary representing 2d table of states, actions and related Q value
+        # dictionary representing 2d table of states, actions and related Q
+        # value
         self.stats_acts_q_val = {}
-
-        self.prev_state = None
-        self.prev_action = None
 
     # Accessor functions for the variable episodesSoFars controlling learning
     def incrementEpisodesSoFar(self):
@@ -183,36 +243,47 @@ class SARSAAgent(Agent):
         legal = state.getLegalPacmanActions()
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
-        print "Legal moves: ", legal
-        print "Pacman position: ", state.getPacmanPosition()
-        print "Ghost positions:", state.getGhostPositions()
-        print "Food locations: "
-        print state.getFood()
-        print "Score: ", state.getScore()
+        # print "Legal moves: ", legal
+        # print "Pacman position: ", state.getPacmanPosition()
+        # print "Ghost positions:", state.getGhostPositions()
+        # print "Food locations: "
+        # print state.getFood()
+        # print "Score: ", state.getScore()
 
         # Now pick what action to take. For now a random choice among
         # the legal moves
         action = random.choice(legal)
-        state = State(state.gameStateData)
+        q_state = QState(next_position(state.getPacmanPosition(),
+                                       directionToAction[action]),
+                         tuple(state.getGhostPositions()),
+                         tuple(convert_to_food_list(state.getFood())))
 
-        if self.prev_state is not None:
-            prev_q_val = \
-                self.stats_acts_q_val.get(self.prev_state, 0) \
-                    .get(self.prev_action, 0)
-
-            self.stats_acts_q_val[self.prev_state][self.prev_action] = \
-                prev_q_val + self.alpha * \
-                (getRewardByState(self.prev_state) + self.epsilon *
-                 self.stats_acts_q_val.get(state, 0)
-                 .get(action, 0) - prev_q_val)
-
-        # reward = getReward(pacman_next_pos(qState.pacman_pos, action),
-        #                    qState.food, qState.ghosts_pos)
-        # updateStatesActions(self.states_actions_q_val, reward, qState,action,
-        #                     self.alpha,self.gamma)
+        # update
+        self.updateStatesActionsQValue(action, q_state)
 
         # We have to return an action
         return action
+
+    def updateStatesActionsQValue(self, action, q_state):
+        if q_state not in self.stats_acts_q_val:
+            self.stats_acts_q_val[q_state] = {}
+
+        q_value = self.stats_acts_q_val[q_state].get(action, 0)
+
+        self.stats_acts_q_val[q_state][action] = \
+            q_value + \
+            self.alpha * \
+            (getRewardByState(q_state) +
+             self.epsilon *
+             max_next_q_values(q_state, self.stats_acts_q_val) -
+             q_value)
+
+    def getQValue(self, action, state):
+        actions_q_val = self.stats_acts_q_val.get(state, 0)
+        if actions_q_val is not 0:
+            return actions_q_val.get(action, 0)
+        else:
+            return actions_q_val
 
     # Handle the end of episodes
     #
@@ -220,6 +291,13 @@ class SARSAAgent(Agent):
     def final(self, state):
 
         print "A game just ended!"
+        # q_state = QState(deepcopy(state.data))
+        # action = Directions.STOP
+        # prev_q_val = self.getQValue(self.prev_action, self.prev_state)
+        # self.updateStatesActionsQValue(action, prev_q_val, q_state)
+        #
+        # self.prev_action = action
+        # self.prev_state = q_state
 
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number

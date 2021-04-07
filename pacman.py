@@ -359,10 +359,10 @@ class PacmanRules:
     def consume( position, state ):
         x,y = position
         # Eat food
-        if state.data.convert_to_food_list[x][y]:
+        if state.data.food[x][y]:
             state.data.scoreChange += 10
-            state.data.convert_to_food_list = state.data.convert_to_food_list.copy()
-            state.data.convert_to_food_list[x][y] = False
+            state.data.food = state.data.food.copy()
+            state.data.food[x][y] = False
             state.data._foodEaten = position
             # TODO: cache numFood?
             numFood = state.getNumFood()

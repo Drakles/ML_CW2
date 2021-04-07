@@ -377,7 +377,7 @@ class GameStateData:
         Generates a new data packet by copying information from its predecessor.
         """
         if prevState != None:
-            self.food = prevState.convert_to_food_list.shallowCopy()
+            self.food = prevState.food.shallowCopy()
             self.capsules = prevState.capsules[:]
             self.agentStates = self.copyAgentStates( prevState.agentStates )
             self.layout = prevState.layout
@@ -415,7 +415,7 @@ class GameStateData:
         if other == None: return False
         # TODO Check for type of other
         if not self.agentStates == other.agentStates: return False
-        if not self.food == other.convert_to_food_list: return False
+        if not self.food == other.food: return False
         if not self.capsules == other.capsules: return False
         if not self.score == other.score: return False
         return True
@@ -488,7 +488,7 @@ class GameStateData:
         """
         Creates an initial game state from a layout array (see layout.py).
         """
-        self.food = layout.convert_to_food_list.copy()
+        self.food = layout.food.copy()
         #self.capsules = []
         self.capsules = layout.capsules[:]
         self.layout = layout
