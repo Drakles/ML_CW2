@@ -34,9 +34,9 @@ import util
 class Reward:
     WIN = 10000
     GAME_OVER = -1000
-    GHOST_IN_RANGE = GAME_OVER / 10
+    # GHOST_IN_RANGE = GAME_OVER / 10
     FOOD = 100
-    FOOD_IN_RANGE = FOOD / 10
+    # FOOD_IN_RANGE = FOOD / 10
     DEFAULT = -1
 
 
@@ -197,9 +197,9 @@ def getReward(pacman_position, food, ghosts_pos, walls):
     elif objects_within_range(pacman_position, ghosts_pos, walls, 1):
         # print 'you are close to ghost in range 2!'
         return Reward.GAME_OVER / 10
-    # elif objects_within_range(pacman_position, ghosts_pos, walls, 3):
-    #     print 'you are close to ghost in range 3!'
-    #     return Reward.GAME_OVER / 1000
+    elif objects_within_range(pacman_position, ghosts_pos, walls, 2):
+        # print 'you are close to ghost in range 3!'
+        return Reward.GAME_OVER / 1000
     elif pacman_position in food:
         # print 'you doin good!'
         return Reward.FOOD
@@ -284,7 +284,7 @@ def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls, e,
 
 
 # -p QLearningAgent -l smallClassic -a numTraining=2 -a alpha=0.2
-class QLearningAgent(Agent):
+class QLearnAgent(Agent):
 
     # Constructor, called when we start running the
     def __init__(self, alpha=0.15, epsilon=0.4, gamma=0.8, numTraining=90):
@@ -407,7 +407,7 @@ class QLearningAgent(Agent):
     def final(self, state):
 
         # print "A game just ended!"
-        print self.getEpisodesSoFar()
+        # print self.getEpisodesSoFar()
         # q_state = QState(deepcopy(state.data))
         # action = Directions.STOP
         # prev_q_val = self.getQValue(self.prev_action, self.prev_state)
