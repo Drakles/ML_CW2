@@ -32,9 +32,12 @@ import util
 
 
 class Reward:
-    GAME_OVER = -100
-    FOOD = 1000
-    DEFAULT = 0
+    WIN = 10000
+    GAME_OVER = -1000
+    GHOST_IN_RANGE = GAME_OVER / 10
+    FOOD = 100
+    FOOD_IN_RANGE = FOOD / 10
+    DEFAULT = -1
 
 
 # Class representing actions like going UP, RIGHT, DOWN or LEFT associated
@@ -82,6 +85,23 @@ def convert_to_food_list(foodGrid):
     return foodList
 
 
+def convert_to_walls_list(wallGrid):
+    # Returns a list of (x, y) pairs of wall positions
+    #
+    # This version just returns all the current wall locations
+    # extracted from the state data.  In later versions, this will be
+    # restricted by distance, and include some uncertainty.
+
+    wallList = []
+    width = wallGrid.width
+    height = wallGrid.height
+    for i in range(width):
+        for j in range(height):
+            if wallGrid[i][j] == True:
+                wallList.append((i, j))
+    return wallList
+
+
 # class StateZero:
 #     def __init__(self):
 #         self.pacman_pos = (0, 0)
@@ -97,10 +117,11 @@ def convert_to_food_list(foodGrid):
 
 class QState:
 
-    def __init__(self, pacman_pos, ghosts_pos, food_pos):
+    def __init__(self, pacman_pos, ghosts_pos, food_pos, walls):
         self.pacman_pos = pacman_pos
         self.ghosts_pos = ghosts_pos
         self.food_pos = food_pos
+        self.walls = walls
 
     def __eq__(self, otherGameStateData):
         return self.pacman_pos == otherGameStateData.pacman_pos \
@@ -119,20 +140,89 @@ def pacman_next_pos(pacman_pos, action):
     return pacman_pos + directionToAction[action]
 
 
-def getReward(pacman_position, food, ghosts_pos):
+# Returns dict with all possible new locations and associated moves without considering the walls
+def possible_moves(pos):
+    return {
+        (pos[0], pos[1] + 1): Actions.UP,
+        (pos[0] + 1, pos[1]): Actions.RIGHT,
+        (pos[0], pos[1] - 1): Actions.DOWN,
+        (pos[0] - 1, pos[1]): Actions.LEFT
+    }
+
+
+def search_pos_within_limit(pacman_pos, single_obj_pos, limit, walls_pos,
+                            is_obj_found):
+    if limit > 0 and not is_obj_found:
+
+        if pacman_pos == single_obj_pos:
+            return True
+
+        for next_pos, action in possible_moves(pacman_pos).items():
+            if next_pos not in walls_pos:
+                if next_pos == single_obj_pos:
+                    return True
+                else:
+                    is_obj_found = is_obj_found or\
+                                   search_pos_within_limit(
+                                                    next_pos,
+                                                    single_obj_pos,
+                                                    limit - 1,
+                                                    walls_pos,
+                                                    is_obj_found)
+
+        return is_obj_found
+    else:
+        return is_obj_found
+
+
+def objects_within_range(pacman_pos, obj_pos, walls_pos, limit):
+    obj_within_limit_distance = filter(
+        lambda single_obj:
+        util.manhattanDistance(pacman_pos, single_obj) <= limit, obj_pos)
+
+    if obj_within_limit_distance:
+        for single_obj_pos in obj_within_limit_distance:
+            is_obj_detected = search_pos_within_limit(pacman_pos,
+                                                      single_obj_pos, limit,
+                                                      walls_pos,False)
+            if is_obj_detected:
+                return True
+
+    return False
+
+
+def getReward(pacman_position, food, ghosts_pos, walls):
     if pacman_position in ghosts_pos:
         return Reward.GAME_OVER
+    elif objects_within_range(pacman_position, ghosts_pos, walls, 2):
+        print 'you are close to ghost in range 2!'
+        return Reward.GAME_OVER / 1000
+    elif objects_within_range(pacman_position, ghosts_pos, walls, 3):
+        print 'you are close to ghost in range 3!'
+        return Reward.GAME_OVER / 1000
     elif pacman_position in food:
         print 'you doin good!'
         return Reward.FOOD
+    elif objects_within_range(pacman_position, food, walls, 1):
+        print 'you gettin closer to foodie in range 1!'
+        return Reward.FOOD / 100
+    elif objects_within_range(pacman_position, food, walls, 2):
+        print 'you gettin closer to foodie in range 2!'
+        return Reward.FOOD / 1000
+    # elif objects_within_range(pacman_position, food, walls, 3):
+    #     print 'you gettin closer to foodie in range 3!'
+    #     return Reward.FOOD / 10000
+    elif not food:
+        return Reward.WIN
     else:
         return Reward.DEFAULT
 
 
-def getRewardByState(prev_state):
-    return getReward(prev_state.pacman_pos,
-                     prev_state.food_pos,
-                     prev_state.ghosts_pos)
+def getRewardByState(q_state):
+    return getReward(q_state.pacman_pos,
+                     q_state.food_pos,
+                     q_state.ghosts_pos,
+                     q_state.walls)
 
 
 def getQValue(action, state, stats_acts_q_val):
@@ -148,41 +238,43 @@ def next_position(pacman_pos, action):
 
 
 def max_next_q_values(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
-                      legal):
+                      legal, walls):
     next_q_val = []
 
     for action in getAllActions(legal):
         next_q_state = QState(next_position(pacman_pos, action),
-                              ghosts_pos, food_pos)
+                              ghosts_pos, food_pos, walls)
         next_q_val.append(getQValue(action, next_q_state, stats_acts_q_val))
 
     return max(next_q_val)
 
 
-def best_next_action(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val, legal):
+def best_next_action(pacman_pos, ghosts_pos, food_pos, walls, stats_acts_q_val,
+                     legal):
     best_q_val = float('-inf')
     # best_q_val = 0
     best_action = None
 
     for action in getAllActions(legal):
         next_q_state = QState(next_position(pacman_pos, action),
-                              ghosts_pos, food_pos)
+                              ghosts_pos, food_pos, walls)
         next_q_val = getQValue(action, next_q_state, stats_acts_q_val)
         if next_q_val >= best_q_val:
+            best_q_val = next_q_val
             best_action = action
 
     return best_action
 
 
-def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, e,
+def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls, e,
                     stats_acts_q_val):
     if random.uniform(0, 1.0) > e:
         # print 'best action: ' + str(actionToDirection[best_next_action(
         #     pacman_pos, ghosts_pos,
-        #                                               food_pos,
+        #                                               food_pos, walls,
         #                         stats_acts_q_val, legal)])
 
-        return best_next_action(pacman_pos, ghosts_pos, food_pos,
+        return best_next_action(pacman_pos, ghosts_pos, food_pos, walls,
                                 stats_acts_q_val, legal)
     else:
         random_action = random.choice(legal)
@@ -194,7 +286,7 @@ def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, e,
 class QLearningAgent(Agent):
 
     # Constructor, called when we start running the
-    def __init__(self, alpha=0.2, epsilon=0.5, gamma=0.8, numTraining=100):
+    def __init__(self, alpha=0.15, epsilon=0.4, gamma=0.8, numTraining=90):
         # alpha       - learning rate
         # epsilon     - exploration rate
         # gamma       - discount factor
@@ -213,6 +305,9 @@ class QLearningAgent(Agent):
         # dictionary representing 2d table of states, actions and related Q
         # value
         self.stats_acts_q_val = {}
+
+        self.prev_action = None
+        self.prev_q_state = None
 
     # Accessor functions for the variable episodesSoFars controlling learning
     def incrementEpisodesSoFar(self):
@@ -258,15 +353,26 @@ class QLearningAgent(Agent):
         pacman_pos = state.getPacmanPosition()
         ghosts_pos = tuple(state.getGhostPositions())
         food_pos = tuple(convert_to_food_list(state.getFood()))
+        walls = convert_to_walls_list(state.getWalls())
 
-        action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos,
-                                 self.epsilon, self.stats_acts_q_val)
-
-        q_state = QState(next_position(pacman_pos, action), ghosts_pos,
-                         food_pos)
+        # action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls,
+        #                          self.epsilon, self.stats_acts_q_val)
+        #
+        # q_state = QState(next_position(pacman_pos, action), ghosts_pos,
+        #                  food_pos, walls)
 
         # update
-        self.updateStatesActionsQValue(action, q_state, legal)
+        if self.prev_q_state is not None:
+            self.updateStatesActionsQValue(self.prev_action,
+                                           self.prev_q_state,
+                                           legal)
+
+        action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls,
+                                 self.epsilon, self.stats_acts_q_val)
+
+        self.prev_action = action
+        self.prev_q_state = QState(next_position(pacman_pos, action), ghosts_pos,
+                         food_pos, walls)
 
         # We have to return an action
         return actionToDirection[action]
@@ -283,7 +389,8 @@ class QLearningAgent(Agent):
             (getRewardByState(q_state) +
              self.gamma *
              max_next_q_values(q_state.pacman_pos, q_state.ghosts_pos,
-                               q_state.food_pos, self.stats_acts_q_val, legal)
+                               q_state.food_pos, self.stats_acts_q_val,
+                               legal, q_state.walls)
              - q_value)
 
     def getQValue(self, action, state):
