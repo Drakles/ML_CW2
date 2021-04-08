@@ -33,7 +33,7 @@ import util
 
 class Reward:
     GAME_OVER = -100
-    FOOD = 100
+    FOOD = 1000
     DEFAULT = 0
 
 
@@ -46,8 +46,8 @@ class Actions:
     LEFT = (-1, 0)
 
 
-def getAllActions():
-    return [Actions.UP, Actions.RIGHT, Actions.DOWN, Actions.LEFT]
+def getAllActions(legal):
+    return [directionToAction[legal_move] for legal_move in legal]
 
 
 # Dictionary to translate action to Direction class.
@@ -98,19 +98,9 @@ def convert_to_food_list(foodGrid):
 class QState:
 
     def __init__(self, pacman_pos, ghosts_pos, food_pos):
-        # TODO update with getPacmanPosition() etc. from pacman.py
         self.pacman_pos = pacman_pos
         self.ghosts_pos = ghosts_pos
         self.food_pos = food_pos
-        # self.pacman_pos = state.agentStates[0].configuration.pos
-        # self.ghosts_pos = tuple([ghost_state.configuration.pos for ghost_state
-        #                          in state.agentStates[1:]])
-        # self.food = tuple(convert_to_food_list(state))
-
-    # def fromQState(self, qstate, pacman_pos):
-    #     self.pacman_pos = pacman_pos
-    #     self.ghosts_pos = qstate.ghosts_pos
-    #     self.food = qstate.food
 
     def __eq__(self, otherGameStateData):
         return self.pacman_pos == otherGameStateData.pacman_pos \
@@ -131,26 +121,12 @@ def pacman_next_pos(pacman_pos, action):
 
 def getReward(pacman_position, food, ghosts_pos):
     if pacman_position in ghosts_pos:
-        print 'game over looser'
         return Reward.GAME_OVER
     elif pacman_position in food:
         print 'you doin good!'
         return Reward.FOOD
     else:
         return Reward.DEFAULT
-
-
-# def updateStatesActions(states_actions_q_val, reward, curr_qState,
-#                         action, learn_rate, discount_fact):
-#     if curr_qState in states_actions_q_val:
-#         actions_reward = states_actions_q_val[curr_qState]
-#         if action in actions_reward:
-#         # update
-#
-#         else:
-#             actions_reward[action] = reward
-#     else:
-#         states_actions_q_val[curr_qState] = {action: reward}
 
 
 def getRewardByState(prev_state):
@@ -171,23 +147,54 @@ def next_position(pacman_pos, action):
     return tuple(map(sum, zip(pacman_pos, action)))
 
 
-def max_next_q_values(q_state, stats_acts_q_val):
+def max_next_q_values(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
+                      legal):
     next_q_val = []
-    actions = getAllActions()
 
-    for action in actions:
-        next_q_state = QState(next_position(q_state.pacman_pos, action),
-                              q_state.ghosts_pos, q_state.food_pos)
+    for action in getAllActions(legal):
+        next_q_state = QState(next_position(pacman_pos, action),
+                              ghosts_pos, food_pos)
         next_q_val.append(getQValue(action, next_q_state, stats_acts_q_val))
 
     return max(next_q_val)
+
+
+def best_next_action(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val, legal):
+    best_q_val = float('-inf')
+    # best_q_val = 0
+    best_action = None
+
+    for action in getAllActions(legal):
+        next_q_state = QState(next_position(pacman_pos, action),
+                              ghosts_pos, food_pos)
+        next_q_val = getQValue(action, next_q_state, stats_acts_q_val)
+        if next_q_val >= best_q_val:
+            best_action = action
+
+    return best_action
+
+
+def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, e,
+                    stats_acts_q_val):
+    if random.uniform(0, 1.0) > e:
+        # print 'best action: ' + str(actionToDirection[best_next_action(
+        #     pacman_pos, ghosts_pos,
+        #                                               food_pos,
+        #                         stats_acts_q_val, legal)])
+
+        return best_next_action(pacman_pos, ghosts_pos, food_pos,
+                                stats_acts_q_val, legal)
+    else:
+        random_action = random.choice(legal)
+        # print 'random move: ' + str(random_action)
+        return directionToAction[random_action]
 
 
 # -p QLearningAgent -l smallClassic -a numTraining=2 -a alpha=0.2
 class QLearningAgent(Agent):
 
     # Constructor, called when we start running the
-    def __init__(self, alpha=0.2, epsilon=0.05, gamma=0.8, numTraining=10):
+    def __init__(self, alpha=0.2, epsilon=0.5, gamma=0.8, numTraining=100):
         # alpha       - learning rate
         # epsilon     - exploration rate
         # gamma       - discount factor
@@ -243,28 +250,28 @@ class QLearningAgent(Agent):
         legal = state.getLegalPacmanActions()
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
-        # print "Legal moves: ", legal
-        # print "Pacman position: ", state.getPacmanPosition()
-        # print "Ghost positions:", state.getGhostPositions()
-        # print "Food locations: "
-        # print state.getFood()
-        # print "Score: ", state.getScore()
 
         # Now pick what action to take. For now a random choice among
         # the legal moves
-        action = random.choice(legal)
-        q_state = QState(next_position(state.getPacmanPosition(),
-                                       directionToAction[action]),
-                         tuple(state.getGhostPositions()),
-                         tuple(convert_to_food_list(state.getFood())))
+        # action = random.choice(legal)
+
+        pacman_pos = state.getPacmanPosition()
+        ghosts_pos = tuple(state.getGhostPositions())
+        food_pos = tuple(convert_to_food_list(state.getFood()))
+
+        action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos,
+                                 self.epsilon, self.stats_acts_q_val)
+
+        q_state = QState(next_position(pacman_pos, action), ghosts_pos,
+                         food_pos)
 
         # update
-        self.updateStatesActionsQValue(action, q_state)
+        self.updateStatesActionsQValue(action, q_state, legal)
 
         # We have to return an action
-        return action
+        return actionToDirection[action]
 
-    def updateStatesActionsQValue(self, action, q_state):
+    def updateStatesActionsQValue(self, action, q_state, legal):
         if q_state not in self.stats_acts_q_val:
             self.stats_acts_q_val[q_state] = {}
 
@@ -274,9 +281,10 @@ class QLearningAgent(Agent):
             q_value + \
             self.alpha * \
             (getRewardByState(q_state) +
-             self.epsilon *
-             max_next_q_values(q_state, self.stats_acts_q_val) -
-             q_value)
+             self.gamma *
+             max_next_q_values(q_state.pacman_pos, q_state.ghosts_pos,
+                               q_state.food_pos, self.stats_acts_q_val, legal)
+             - q_value)
 
     def getQValue(self, action, state):
         actions_q_val = self.stats_acts_q_val.get(state, 0)
@@ -290,7 +298,8 @@ class QLearningAgent(Agent):
     # This is called by the game after a win or a loss.
     def final(self, state):
 
-        print "A game just ended!"
+        # print "A game just ended!"
+        print self.getEpisodesSoFar()
         # q_state = QState(deepcopy(state.data))
         # action = Directions.STOP
         # prev_q_val = self.getQValue(self.prev_action, self.prev_state)
