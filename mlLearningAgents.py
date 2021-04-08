@@ -194,25 +194,26 @@ def objects_within_range(pacman_pos, obj_pos, walls_pos, limit):
 def getReward(pacman_position, food, ghosts_pos, walls):
     if pacman_position in ghosts_pos:
         return Reward.GAME_OVER
-    elif objects_within_range(pacman_position, ghosts_pos, walls, 2):
-        print 'you are close to ghost in range 2!'
-        return Reward.GAME_OVER / 1000
-    elif objects_within_range(pacman_position, ghosts_pos, walls, 3):
-        print 'you are close to ghost in range 3!'
-        return Reward.GAME_OVER / 1000
+    elif objects_within_range(pacman_position, ghosts_pos, walls, 1):
+        # print 'you are close to ghost in range 2!'
+        return Reward.GAME_OVER / 10
+    # elif objects_within_range(pacman_position, ghosts_pos, walls, 3):
+    #     print 'you are close to ghost in range 3!'
+    #     return Reward.GAME_OVER / 1000
     elif pacman_position in food:
-        print 'you doin good!'
+        # print 'you doin good!'
         return Reward.FOOD
     elif objects_within_range(pacman_position, food, walls, 1):
-        print 'you gettin closer to foodie in range 1!'
+        # print 'you gettin closer to foodie in range 1!'
         return Reward.FOOD / 100
     elif objects_within_range(pacman_position, food, walls, 2):
-        print 'you gettin closer to foodie in range 2!'
+        # print 'you gettin closer to foodie in range 2!'
         return Reward.FOOD / 1000
     # elif objects_within_range(pacman_position, food, walls, 3):
     #     print 'you gettin closer to foodie in range 3!'
     #     return Reward.FOOD / 10000
-    elif not food:
+    elif len(food) == 0:
+        print 'YOU FUKIN WIN'
         return Reward.WIN
     else:
         return Reward.DEFAULT
