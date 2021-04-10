@@ -30,18 +30,20 @@ import random
 import game
 import util
 
-
+"""
+This class represents different rewards that the agent can get
+"""
 class Reward:
     WIN = 10000
     GAME_OVER = -1000
-    # GHOST_IN_RANGE = GAME_OVER / 10
     FOOD = 100
-    # FOOD_IN_RANGE = FOOD / 10
     DEFAULT = -1
 
 
-# Class representing actions like going UP, RIGHT, DOWN or LEFT associated
-# with tuple representing actual change on x, y axis.
+"""
+Class representing actions like going UP, RIGHT, DOWN or LEFT associated
+with tuple representing actual change on x, y axis.
+"""
 class Actions:
     UP = (0, 1)
     RIGHT = (1, 0)
@@ -49,11 +51,18 @@ class Actions:
     LEFT = (-1, 0)
 
 
-def getAllActions(legal):
+"""
+This function returns all legal actions
+
+@param legal: list of legal directions
+@return: list of legal actions that can be made
+"""
+def getAllLegalActions(legal):
     return [directionToAction[legal_move] for legal_move in legal]
 
-
-# Dictionary to translate action to Direction class.
+"""
+Dictionary to translate action to Direction class.
+"""
 actionToDirection = {
     Actions.UP: Directions.NORTH,
     Actions.RIGHT: Directions.EAST,
@@ -61,7 +70,9 @@ actionToDirection = {
     Actions.LEFT: Directions.WEST,
 }
 
-# Dictionary to translate Direction class to action.
+"""
+Dictionary to translate Direction class to action.
+"""
 directionToAction = {
     Directions.NORTH: Actions.UP,
     Directions.EAST: Actions.RIGHT,
@@ -69,50 +80,20 @@ directionToAction = {
     Directions.WEST: Actions.LEFT,
 }
 
+"""
+This function converts the location of elements in grid to list
 
-# this function is taken from api class of pacman project
-def convert_to_food_list(foodGrid):
-    # Returns a list of (x, y) pairs of food positions
-    foodList = []
-    width = foodGrid.width
-    height = foodGrid.height
-    for i in range(width):
-        for j in range(height):
-            if foodGrid[i][j]:
-                foodList.append((i, j))
+@param grid: grid of elements to be converted
+@return: list with positions of element in grid
+"""
+def convert_grid_to_list(grid):
+    converted_list = []
 
-    # Return list of food
-    return foodList
-
-
-def convert_to_walls_list(wallGrid):
-    # Returns a list of (x, y) pairs of wall positions
-    #
-    # This version just returns all the current wall locations
-    # extracted from the state data.  In later versions, this will be
-    # restricted by distance, and include some uncertainty.
-
-    wallList = []
-    width = wallGrid.width
-    height = wallGrid.height
-    for i in range(width):
-        for j in range(height):
-            if wallGrid[i][j] == True:
-                wallList.append((i, j))
-    return wallList
-
-
-# class StateZero:
-#     def __init__(self):
-#         self.pacman_pos = (0, 0)
-#         self.ghosts_pos = tuple([(-1, -1)])
-#         self.food = tuple([(-1, -1)])
-#
-#     def __eq__(self, other):
-#         return self == other
-#
-#     def __hash__(self):
-#         return hash((self.pacman_pos, self.ghosts_pos, self.food))
+    for i in range(grid.width):
+        for j in range(grid.height):
+            if grid[i][j]:
+                converted_list.append((i, j))
+    return converted_list
 
 
 class QState:
@@ -140,7 +121,8 @@ def pacman_next_pos(pacman_pos, action):
     return pacman_pos + directionToAction[action]
 
 
-# Returns dict with all possible new locations and associated moves without considering the walls
+# Returns dict with all possible new locations and associated moves without
+# considering the walls
 def possible_moves(pos):
     return {
         (pos[0], pos[1] + 1): Actions.UP,
@@ -162,13 +144,13 @@ def search_pos_within_limit(pacman_pos, single_obj_pos, limit, walls_pos,
                 if next_pos == single_obj_pos:
                     return True
                 else:
-                    is_obj_found = is_obj_found or\
+                    is_obj_found = is_obj_found or \
                                    search_pos_within_limit(
-                                                    next_pos,
-                                                    single_obj_pos,
-                                                    limit - 1,
-                                                    walls_pos,
-                                                    is_obj_found)
+                                       next_pos,
+                                       single_obj_pos,
+                                       limit - 1,
+                                       walls_pos,
+                                       is_obj_found)
 
         return is_obj_found
     else:
@@ -183,8 +165,10 @@ def objects_within_range(pacman_pos, obj_pos, walls_pos, limit):
     if obj_within_limit_distance:
         for single_obj_pos in obj_within_limit_distance:
             is_obj_detected = search_pos_within_limit(pacman_pos,
-                                                      single_obj_pos, limit,
-                                                      walls_pos,False)
+                                                      single_obj_pos,
+                                                      limit,
+                                                      walls_pos,
+                                                      False)
             if is_obj_detected:
                 return True
 
@@ -194,36 +178,12 @@ def objects_within_range(pacman_pos, obj_pos, walls_pos, limit):
 def getReward(pacman_position, food, ghosts_pos, walls):
     if pacman_position in ghosts_pos:
         return Reward.GAME_OVER
-    elif objects_within_range(pacman_position, ghosts_pos, walls, 1):
-        # print 'you are close to ghost in range 2!'
-        return Reward.GAME_OVER / 10
-    elif objects_within_range(pacman_position, ghosts_pos, walls, 2):
-        # print 'you are close to ghost in range 3!'
-        return Reward.GAME_OVER / 1000
     elif pacman_position in food:
-        # print 'you doin good!'
         return Reward.FOOD
     elif objects_within_range(pacman_position, food, walls, 1):
-        # print 'you gettin closer to foodie in range 1!'
         return Reward.FOOD / 100
-    elif objects_within_range(pacman_position, food, walls, 2):
-        # print 'you gettin closer to foodie in range 2!'
-        return Reward.FOOD / 1000
-    # elif objects_within_range(pacman_position, food, walls, 3):
-    #     print 'you gettin closer to foodie in range 3!'
-    #     return Reward.FOOD / 10000
-    elif len(food) == 0:
-        print 'YOU FUKIN WIN'
-        return Reward.WIN
     else:
         return Reward.DEFAULT
-
-
-def getRewardByState(q_state):
-    return getReward(q_state.pacman_pos,
-                     q_state.food_pos,
-                     q_state.ghosts_pos,
-                     q_state.walls)
 
 
 def getQValue(action, state, stats_acts_q_val):
@@ -242,21 +202,20 @@ def max_next_q_values(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
                       legal, walls):
     next_q_val = []
 
-    for action in getAllActions(legal):
+    for action in getAllLegalActions(legal):
         next_q_state = QState(next_position(pacman_pos, action),
                               ghosts_pos, food_pos, walls)
         next_q_val.append(getQValue(action, next_q_state, stats_acts_q_val))
 
-    return max(next_q_val)
+    return max(next_q_val) if next_q_val else 0
 
 
 def best_next_action(pacman_pos, ghosts_pos, food_pos, walls, stats_acts_q_val,
                      legal):
     best_q_val = float('-inf')
-    # best_q_val = 0
     best_action = None
 
-    for action in getAllActions(legal):
+    for action in getAllLegalActions(legal):
         next_q_state = QState(next_position(pacman_pos, action),
                               ghosts_pos, food_pos, walls)
         next_q_val = getQValue(action, next_q_state, stats_acts_q_val)
@@ -270,24 +229,18 @@ def best_next_action(pacman_pos, ghosts_pos, food_pos, walls, stats_acts_q_val,
 def e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls, e,
                     stats_acts_q_val):
     if random.uniform(0, 1.0) > e:
-        # print 'best action: ' + str(actionToDirection[best_next_action(
-        #     pacman_pos, ghosts_pos,
-        #                                               food_pos, walls,
-        #                         stats_acts_q_val, legal)])
-
         return best_next_action(pacman_pos, ghosts_pos, food_pos, walls,
                                 stats_acts_q_val, legal)
     else:
         random_action = random.choice(legal)
-        # print 'random move: ' + str(random_action)
         return directionToAction[random_action]
 
 
-# -p QLearningAgent -l smallClassic -a numTraining=2 -a alpha=0.2
+# -p QLearnAgent -x 2000 -n 2010 -l smallGrid
 class QLearnAgent(Agent):
 
     # Constructor, called when we start running the
-    def __init__(self, alpha=0.15, epsilon=0.4, gamma=0.8, numTraining=90):
+    def __init__(self, alpha=0.2, epsilon=0.05, gamma=0.8, numTraining = 10):
         # alpha       - learning rate
         # epsilon     - exploration rate
         # gamma       - discount factor
@@ -347,20 +300,10 @@ class QLearnAgent(Agent):
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
 
-        # Now pick what action to take. For now a random choice among
-        # the legal moves
-        # action = random.choice(legal)
-
         pacman_pos = state.getPacmanPosition()
         ghosts_pos = tuple(state.getGhostPositions())
-        food_pos = tuple(convert_to_food_list(state.getFood()))
-        walls = convert_to_walls_list(state.getWalls())
-
-        # action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos, walls,
-        #                          self.epsilon, self.stats_acts_q_val)
-        #
-        # q_state = QState(next_position(pacman_pos, action), ghosts_pos,
-        #                  food_pos, walls)
+        food_pos = tuple(convert_grid_to_list(state.getFood()))
+        walls = convert_grid_to_list(state.getWalls())
 
         # update
         if self.prev_q_state is not None:
@@ -372,10 +315,10 @@ class QLearnAgent(Agent):
                                  self.epsilon, self.stats_acts_q_val)
 
         self.prev_action = action
-        self.prev_q_state = QState(next_position(pacman_pos, action), ghosts_pos,
-                         food_pos, walls)
+        self.prev_q_state = QState(next_position(pacman_pos, action),
+                                   ghosts_pos,
+                                   food_pos, walls)
 
-        # We have to return an action
         return actionToDirection[action]
 
     def updateStatesActionsQValue(self, action, q_state, legal):
@@ -387,7 +330,10 @@ class QLearnAgent(Agent):
         self.stats_acts_q_val[q_state][action] = \
             q_value + \
             self.alpha * \
-            (getRewardByState(q_state) +
+            (getReward(q_state.pacman_pos,
+                       q_state.food_pos,
+                       q_state.ghosts_pos,
+                       q_state.walls) +
              self.gamma *
              max_next_q_values(q_state.pacman_pos, q_state.ghosts_pos,
                                q_state.food_pos, self.stats_acts_q_val,
@@ -405,17 +351,9 @@ class QLearnAgent(Agent):
     #
     # This is called by the game after a win or a loss.
     def final(self, state):
-
-        # print "A game just ended!"
-        # print self.getEpisodesSoFar()
-        # q_state = QState(deepcopy(state.data))
-        # action = Directions.STOP
-        # prev_q_val = self.getQValue(self.prev_action, self.prev_state)
-        # self.updateStatesActionsQValue(action, prev_q_val, q_state)
-        #
-        # self.prev_action = action
-        # self.prev_state = q_state
-
+        self.updateStatesActionsQValue(self.prev_action,
+                                       self.prev_q_state,
+                                       state.getLegalPacmanActions())
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
         # of training episodes
