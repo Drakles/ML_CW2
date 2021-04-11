@@ -42,7 +42,7 @@ class Reward:
 
 """
 Class representing actions like going UP, RIGHT, DOWN or LEFT associated
-with tuple representing actual change on x, y axis.
+with tuple representing actual change on x and y axis.
 """
 class Actions:
     UP = (0, 1)
@@ -63,7 +63,7 @@ def getAllLegalActions(legal):
 
 
 """
-Dictionary to translate action to Direction class.
+Dictionary to translate Action to Direction class.
 """
 actionToDirection = {
     Actions.UP: Directions.NORTH,
@@ -73,7 +73,7 @@ actionToDirection = {
 }
 
 """
-Dictionary to translate Direction class to action.
+Dictionary to translate Direction class to Action.
 """
 directionToAction = {
     Directions.NORTH: Actions.UP,
@@ -86,7 +86,7 @@ directionToAction = {
 This function converts the location of elements in grid to list
 
 @param grid: grid of elements to be converted
-@return: list with positions of element in grid
+@return: list with positions of the element in grid
 """
 def convert_grid_to_list(grid):
     converted_list = []
@@ -100,10 +100,11 @@ def convert_grid_to_list(grid):
 
 """
 This class represents state Q learning algorithm.
-Each QState object contain information of pacman position, ghosts positions
+Each QState object contains information of Pacman position, ghosts positions
  and food position. 
 """
 class QState:
+
     """
     Constructor to create QState object
 
@@ -111,7 +112,6 @@ class QState:
     @param ghosts_pos: list of ghosts position
     @param food_pos: list of food position
     """
-
     def __init__(self, pacman_pos, ghosts_pos, food_pos):
         self.pacman_pos = pacman_pos
         self.ghosts_pos = ghosts_pos
@@ -158,12 +158,12 @@ def possible_moves(pos):
 
 
 """
-This function performs recursive search of the object and returns True
+This function performs a recursive search of the object and returns True
  if the object may be reached within the limit or False otherwise   
 
 @param pacman_pos: pacman position
 @param single_obj_pos: position of an object that is searched
-@param limit: number of actions that the pacman need to make
+@param limit: number of actions that the Pacman needs to make
  in order to find the object
 @param walls_pos: list of walls
 @param is_obj_found: bool indicating if the object was found within the 
@@ -203,8 +203,8 @@ or False otherwise.
 
 @param pacman_pos: pacman position
 @param obj_pos: position of an object that is searched
-@param walls_pos: list of walls positions
-@param limit: number of actions that the pacman need to make
+@param walls_pos: positions of walls
+@param limit: number of actions that the Pacman need to make
  in order to find the object
 
 @return: bool indicating if the object can be reached within the limit 
@@ -228,30 +228,30 @@ def is_objects_within_range(pacman_pos, obj_pos, walls_pos, limit):
 
 
 """
-This function returns reward given the position where the pacman is.
+This function returns a reward given the position where the Pacman is.
 
 @param pacman_pos: pacman position
-@param food: position of food
+@param food_pos: position of food
 @param ghosts_pos: positions of ghosts
-@param walls: list of walls positions
+@param walls_pos: positions of walls
 
 @return: reward value 
 """
-def getReward(pacman_position, food, ghosts_pos, walls):
-    if pacman_position in ghosts_pos:
+def getReward(pacman_pos, food_pos, ghosts_pos, walls_pos):
+    if pacman_pos in ghosts_pos:
         return Reward.GAME_OVER
-    elif pacman_position in food:
+    elif pacman_pos in food_pos:
         return Reward.FOOD
-    elif is_objects_within_range(pacman_position, food, walls, 1):
+    elif is_objects_within_range(pacman_pos, food_pos, walls_pos, 1):
         return Reward.FOOD_NEAR
     else:
         return Reward.DEFAULT
 
 
 """
-This function returns q value for a given state in a states actions q value 
-dictionary. If a given state or action is absent in dictionary then default q 
-value is 0.
+This function returns the q value for a given state in a states actions q value
+ dictionary. If a given state or action is absent in the dictionary,
+  then default q value of 0 is returned.
 
 @param state: q state based on that the q value is retrieved
 @param action: action based on that the q value is retrieved
@@ -268,19 +268,19 @@ def getQValue(action, state, stats_acts_q_val):
 
 
 """
-This function returns next position of a pacman after given action is performed
+This function returns the next position of a Pacman after given action is performed
 
 @param pacman_pos: pacman position
 @param action: action pacman is making
 
-@return: position of the pacman after the action is taken 
+@return: position of the Pacman after the action is taken 
 """
 def next_position(pacman_pos, action):
     return tuple(map(sum, zip(pacman_pos, action)))
 
 
 """
-This function returns maximum of the q values of all possible next q states
+This function returns a maximum of the q values of all possible next q states
 
 @param pacman_pos: pacman position
 @param ghosts_pos: positions of ghosts
@@ -288,7 +288,7 @@ This function returns maximum of the q values of all possible next q states
 @param stats_acts_q_val: dictionary of q states, actions and q values
 @param legal: legal actions
 
-@return: position of the pacman after the action is taken 
+@return: position of the Pacman after the action is taken 
 """
 def max_next_q_values(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
                       legal):
@@ -302,8 +302,8 @@ def max_next_q_values(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
     return max(next_q_val) if next_q_val else 0
 
 """
-This function returns best action that can be taken in a given situation 
-based on a q values in dictionary of q states, actions and q values.
+This function returns the best action that can be taken in a given situation 
+based on q values in the dictionary of q states, actions and q values.
 
 @param pacman_pos: pacman position
 @param ghosts_pos: positions of ghosts
@@ -329,7 +329,7 @@ def best_next_action(pacman_pos, ghosts_pos, food_pos, stats_acts_q_val,
     return best_action
 
 """
-This function returns action based on a e-greedy method.
+This function returns action based on an e-greedy method
 
 @param pacman_pos: pacman position
 @param ghosts_pos: positions of ghosts
@@ -368,12 +368,18 @@ class QLearnAgent(Agent):
         # Count the number of games we have played
         self.episodesSoFar = 0
 
-        # dictionary representing 2d table of states, actions and related Q
+        # dictionary representing dictionary of states, actions and related Q
         # value
         self.stats_acts_q_val = {}
 
+        # previous action
         self.prev_action = None
+
+        # previous q state
         self.prev_q_state = None
+
+        # position of walls
+        self.walls_pos = None
 
     # Accessor functions for the variable episodesSoFars controlling learning
     def incrementEpisodesSoFar(self):
@@ -410,16 +416,20 @@ class QLearnAgent(Agent):
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
 
+        # collect all information of the current state in the game
         pacman_pos = state.getPacmanPosition()
         ghosts_pos = tuple(state.getGhostPositions())
         food_pos = tuple(convert_grid_to_list(state.getFood()))
-        walls = convert_grid_to_list(state.getWalls())
+        if not self.walls_pos:
+            self.walls_pos = convert_grid_to_list(state.getWalls())
 
-        # update the q states, actions and q value dict
-        if self.prev_q_state is not None:
+        # if previous q state exists
+        if self.prev_q_state:
+            # update the q states, actions and q value dict
             self.updateStatesActionsQValue(self.prev_action,
                                            self.prev_q_state,
-                                           legal, walls)
+                                           self.walls_pos,
+                                           legal)
 
         # select action based on e-greedy algorithm
         action = e_greedy_action(legal, pacman_pos, ghosts_pos, food_pos,
@@ -439,9 +449,9 @@ class QLearnAgent(Agent):
     @param action: previous action
     @param q_state: previous q state
     @param legal: legal actions
-    @param walls: list of walls positions
+    @param walls_pos: list of walls positions
     """
-    def updateStatesActionsQValue(self, action, q_state, legal, walls):
+    def updateStatesActionsQValue(self, action, q_state, walls_pos, legal):
         if q_state not in self.stats_acts_q_val:
             self.stats_acts_q_val[q_state] = {}
 
@@ -453,10 +463,12 @@ class QLearnAgent(Agent):
             (getReward(q_state.pacman_pos,
                        q_state.food_pos,
                        q_state.ghosts_pos,
-                       walls) +
+                       walls_pos) +
              self.gamma *
-             max_next_q_values(q_state.pacman_pos, q_state.ghosts_pos,
-                               q_state.food_pos, self.stats_acts_q_val,
+             max_next_q_values(q_state.pacman_pos,
+                               q_state.ghosts_pos,
+                               q_state.food_pos,
+                               self.stats_acts_q_val,
                                legal)
              - q_value)
 
@@ -467,8 +479,8 @@ class QLearnAgent(Agent):
         # update the q states, actions and q value dict based on the last action
         self.updateStatesActionsQValue(self.prev_action,
                                        self.prev_q_state,
-                                       state.getLegalPacmanActions(),
-                                       convert_grid_to_list(state.getWalls()))
+                                       self.walls_pos,
+                                       state.getLegalPacmanActions())
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
         # of training episodes
